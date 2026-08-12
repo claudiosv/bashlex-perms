@@ -26,6 +26,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "bashlex" },
+    { name = "cchooks" },
     { name = "rich" },
     { name = "typer" },
 ]
@@ -34,6 +35,15 @@ dependencies = [
 dev = [
     { name = "pytest" },
     { name = "ruff" },
+]
+
+[[package]]
+name = "cchooks"
+version = "0.1.5"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/8f/88/74258af3f7c362ca2be0961343d339f8ef9aed384f8b61aa8e62fcec743b/cchooks-0.1.5.tar.gz", hash = "sha256:b6678cb3d1127d292fb3c42d80cecc9441a4025a024201309fbb0c1f69e25dd8", size = 27762, upload-time = "2025-11-12T04:35:26.905Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5c/9e/40504c24f5c342411fc7a6449fe537dfe46f09ceaa4db614eb97504408e5/cchooks-0.1.5-py3-none-any.whl", hash = "sha256:ed60ef7d5ec7b0697b81ac44f064c3433591066da2a3c16811abce68737ba712", size = 26586, upload-time = "2025-11-12T04:35:25.744Z" },
 ]
 
 [[package]]

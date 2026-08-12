@@ -51,6 +51,17 @@ def violations_for(source):
     return violations
 
 
+def pre_tool_use_input(command):
+    return {
+        "session_id": "test-session",
+        "transcript_path": "/tmp/transcript.jsonl",
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "cwd": "/tmp",
+        "tool_input": {"command": command},
+    }
+
+
 @pytest.mark.parametrize("source", REJECTED_COMMANDS)
 def test_rejects_forbidden_executables(source):
     assert "grep" in violations_for(source)
@@ -79,10 +90,13 @@ def test_allows_dynamic_commands_that_cannot_be_resolved(source):
 
 
 def test_main_allows_safe_hook_input(monkeypatch, capsys):
-    hook_input = {"tool_input": {"command": "rg foo file"}}
+    hook_input = pre_tool_use_input("rg foo file")
     monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(hook_input)))
 
-    assert main() == 0
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+
+    assert exc_info.value.code == 0
     assert capsys.readouterr().err == ""
 
 
@@ -102,10 +116,13 @@ def test_main_allows_safe_hook_input(monkeypatch, capsys):
 def test_main_returns_configured_reason(
     command, replacement, reason, monkeypatch, capsys
 ):
-    hook_input = {"tool_input": {"command": command}}
+    hook_input = pre_tool_use_input(command)
     monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(hook_input)))
 
-    assert main() == 2
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+
+    assert exc_info.value.code == 2
     assert capsys.readouterr().err == (
         f"Shell command rejected: `{command}` is forbidden; "
         f"use `{replacement}` instead: {reason}\n"
@@ -113,10 +130,13 @@ def test_main_returns_configured_reason(
 
 
 def test_main_rejects_hook_input_with_sorted_unique_message(monkeypatch, capsys):
-    hook_input = {"tool_input": {"command": "grep foo file; find .; grep bar other"}}
+    hook_input = pre_tool_use_input("grep foo file; find .; grep bar other")
     monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(hook_input)))
 
-    assert main() == 2
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+
+    assert exc_info.value.code == 2
     assert capsys.readouterr().err == (
         "Shell command rejected: `find` is forbidden; use `fd` instead: "
         "Prefer fd for filesystem search; `grep` is forbidden; use `rg` instead: "

@@ -1,8 +1,9 @@
-import json
 import os
 import sys
+from typing import NoReturn
 
 import bashlex
+from cchooks import PreToolUseContext, safe_create_context
 
 FORBIDDEN = {
     "grep": {
@@ -325,15 +326,22 @@ def inspect_xargs(argv, violations, *, depth):
     inspect_special_command(executable, unwrapped_argv, violations, depth=depth)
 
 
-def main():
-    hook_input = json.load(sys.stdin)
-    source = hook_input["tool_input"]["command"]
+def main() -> NoReturn:
+    context = safe_create_context(stdin=sys.stdin)
+
+    if not isinstance(context, PreToolUseContext):
+        # This hook is only ever registered for PreToolUse; anything else
+        # is a misconfiguration we shouldn't block on.
+        sys.exit(0)
+
+    source = context.tool_input.get("command")
     violations = set()
 
-    inspect_shell_source(source, violations)
+    if isinstance(source, str):
+        inspect_shell_source(source, violations)
 
     if not violations:
-        return 0
+        context.output.exit_success()
 
     messages = []
     for command in sorted(violations):
@@ -342,7 +350,4 @@ def main():
             f"`{command}` is forbidden; use `{policy['replacement']}` instead: "
             f"{policy['reason']}"
         )
-    print("Shell command rejected: " + "; ".join(messages), file=sys.stderr)
-
-    # Claude Code treats exit 2 from PreToolUse as a blocking rejection.
-    return 2
+    context.output.exit_block("Shell command rejected: " + "; ".join(messages))
