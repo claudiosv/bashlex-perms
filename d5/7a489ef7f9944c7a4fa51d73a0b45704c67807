@@ -1,0 +1,33 @@
+src/bashlex_perms/checker.py
+  s_b02e9bb98aa967::t_bca58f80248775 330
+  s_b02e9bb98aa967::t_73664c61296ddd 329,331-332,336-337,340-341,344,353
+  s_b02e9bb98aa967::t_e66a1564d9bb60 333-335
+  s_b02e9bb98aa967::t_2267950743c02a 3,6
+src/bashlex_perms/__main__.py
+  s_b02e9bb98aa967::t_016effdb562d21 3
+tests/test_checker.py
+  s_b02e9bb98aa967::t_08833d52327cf4 93,96-99,119,122-125,133,136-139
+  s_b02e9bb98aa967::t_622788f85ea02b 54-64
+pyproject.toml
+  s_b02e9bb98aa967::t_733567601612f3 12
+README.md
+  s_b02e9bb98aa967::t_46879d070170e2 6-7,12-19
+uv.lock
+  s_b02e9bb98aa967::t_b40682bbe59cec 29,40-48
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "d57a489ef7f9944c7a4fa51d73a0b45704c67807",
+  "prompts": {},
+  "sessions": {
+    "s_b02e9bb98aa967": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5c63b0f8-f2b1-49fc-af56-24d061f03eb7",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Claudio Spiess <claudiosv@users.noreply.github.com>"
+    }
+  }
+}
