@@ -1,0 +1,68 @@
+tests/test_cli.py
+  s_b02e9bb98aa967::t_4d1f235b334980 1-138
+  s_b02e9bb98aa967::t_df29478fd912de 139-153
+pyproject.toml
+  s_3fa48e142ea5f8::t_9c47e46304b56a 4,17
+  s_3fa48e142ea5f8::t_36211f0e5ce2c8 8,10-11,14,23-28
+  s_b02e9bb98aa967::t_a4812f2a781d53 12-13
+  s_b02e9bb98aa967::t_44f09a1e8962fa 18
+  s_3fa48e142ea5f8::t_b6544e203f63de 29-31
+  s_3fa48e142ea5f8::t_b7a0f221f1e413 1-3
+  s_3fa48e142ea5f8::t_ec7fd738b03c70 5-7
+  s_3fa48e142ea5f8::t_5cf953044031b4 9
+  s_3fa48e142ea5f8::t_917e321c83db99 15-16
+  s_b02e9bb98aa967::t_05a251cb34cc5d 19-22
+src/bashlex_perms/__init__.py
+  s_3fa48e142ea5f8::t_9c47e46304b56a 1-5
+src/bashlex_perms/__main__.py
+  s_3fa48e142ea5f8::t_9c47e46304b56a 1-3
+.gitignore
+  s_b02e9bb98aa967::t_d103ca5a371001 11-13
+  s_b02e9bb98aa967::t_cf4126bfea7e5b 8-10
+  s_b02e9bb98aa967::t_257a4e700fa99c 1-7
+src/bashlex_perms/cli.py
+  s_b02e9bb98aa967::t_7280aaed718dc2 31,125-127
+  s_b02e9bb98aa967::t_eff1cbb66efa2d 139
+  s_b02e9bb98aa967::t_7cbd8893d16d7b 60
+  s_b02e9bb98aa967::t_cd516c9eece3f5 1-30,32-59,61-124,128-138,140-143
+README.md
+  s_3fa48e142ea5f8::t_9c47e46304b56a 1-25,37-43
+  s_b02e9bb98aa967::t_465bd0943dfc81 26-36
+src/bashlex_perms/checker.py
+  s_3fa48e142ea5f8::t_9c47e46304b56a 1-7,24-213,215-265,267-322,324-337,345-348
+  s_3fa48e142ea5f8::t_11acbcd1183f44 8-23,266,323,338-344
+  s_3fa48e142ea5f8::t_d39ac9040ec184 214
+tests/test_checker.py
+  s_3fa48e142ea5f8::t_9c47e46304b56a 1-55,57-88,115,117-120,124
+  s_3fa48e142ea5f8::t_11acbcd1183f44 56,121-123
+  s_3fa48e142ea5f8::t_d39ac9040ec184 116
+  s_3fa48e142ea5f8::t_afc5f34b1f32ae 89-114
+.python-version
+  s_3fa48e142ea5f8::t_2ba74167bd2c05 1
+uv.lock
+  s_b02e9bb98aa967::t_c501d2b545de31 1-181
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "00c2cc5d675531e8498e0143f8b2223a293dd0e5",
+  "prompts": {},
+  "sessions": {
+    "s_3fa48e142ea5f8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ff40c-1ba0-72e0-b5ef-114a38f052ff",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Claudio Spiess <claudiosv@users.noreply.github.com>"
+    },
+    "s_b02e9bb98aa967": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5c63b0f8-f2b1-49fc-af56-24d061f03eb7",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Claudio Spiess <claudiosv@users.noreply.github.com>"
+    }
+  }
+}
