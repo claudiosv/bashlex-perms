@@ -1,0 +1,29 @@
+# bashlex-perms rules. Copied to ~/.config/bashlex-perms/config.toml by
+# `bashlex-perms-cli install`; once that file exists, it is the only source of rules.
+#
+# [[rule]]
+#   command  = "grep"                  # or: commands = ["grep", "egrep"]
+#   use      = "ugrep"                 # optional replacement hint
+#   reason   = "Prefer ugrep"          # optional
+#   args     = ["push", "--force"]     # optional; all must be present
+#   decision = "deny"                  # "deny" (default) or "ask"
+
+[[rule]]
+command = "grep"
+use = "ugrep"
+reason = "Prefer ugrep for search"
+
+[[rule]]
+command = "egrep"
+use = "ugrep"
+reason = "Prefer ugrep for extended regular expression search"
+
+[[rule]]
+command = "fgrep"
+use = "ugrep"
+reason = "Prefer ugrep for fixed-string search"
+
+[[rule]]
+command = "find"
+use = "fd"
+reason = "Prefer fd for filesystem search"

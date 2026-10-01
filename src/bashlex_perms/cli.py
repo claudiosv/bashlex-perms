@@ -9,6 +9,8 @@ from typing import Annotated
 import typer
 from rich.console import Console
 
+from bashlex_perms.config import DEFAULT_CONFIG, config_path
+
 app = typer.Typer(add_completion=False, no_args_is_help=True)
 console = Console()
 
@@ -85,18 +87,25 @@ def install(
         "hooks": [{"type": "command", "command": resolved_command}],
     }
 
-    for i, entry in enumerate(pre_tool_use):
-        if isinstance(entry, dict) and _entry_is_ours(entry):
-            pre_tool_use[i] = new_entry
-            break
-    else:
-        pre_tool_use.append(new_entry)
+    # Always first, so this hook runs before any other PreToolUse hook.
+    pre_tool_use[:] = [
+        new_entry,
+        *(e for e in pre_tool_use if not (isinstance(e, dict) and _entry_is_ours(e))),
+    ]
 
     _write_settings(settings_path, settings)
     console.print(
         f"[green]Installed[/green] bashlex-perms hook in [bold]{settings_path}[/bold] "
         f"(command: [cyan]{resolved_command}[/cyan])"
     )
+
+    config = config_path()
+    if config.exists():
+        console.print(f"Config exists: [bold]{config}[/bold]")
+    else:
+        config.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(DEFAULT_CONFIG, config)
+        console.print(f"[green]Wrote[/green] default config to [bold]{config}[/bold]")
 
 
 @app.command()

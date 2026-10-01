@@ -5,24 +5,9 @@ from typing import NoReturn
 import bashlex
 from cchooks import PreToolUseContext, safe_create_context
 
-FORBIDDEN = {
-    "grep": {
-        "replacement": "ugrep",
-        "reason": "Prefer ugrep for search",
-    },
-    "egrep": {
-        "replacement": "ugrep",
-        "reason": "Prefer ugrep for extended regular expression search",
-    },
-    "fgrep": {
-        "replacement": "ugrep",
-        "reason": "Prefer ugrep for fixed-string search",
-    },
-    "find": {
-        "replacement": "fd",
-        "reason": "Prefer fd for filesystem search",
-    },
-}
+from bashlex_perms.config import DEFAULT_CONFIG, load_rules
+
+RULES = load_rules(DEFAULT_CONFIG)  # replaced from the user config in main()
 
 SHELLS = {
     "sh",
@@ -31,6 +16,12 @@ SHELLS = {
     "zsh",
     "ksh",
 }
+
+# Options that run a command, and the words that end that command.
+FIND_EXEC = ({"-exec", "-execdir", "-ok", "-okdir"}, {";", "+"})
+# ponytail: fd's clustered short flags (-Hx) aren't recognised.
+FD_EXEC = ({"-x", "--exec", "-X", "--exec-batch"}, {";"})
+EXEC_RUNNERS = {"find": FIND_EXEC, "fd": FD_EXEC, "fdfind": FD_EXEC}
 
 # Options where the next argv item is an option argument.
 SUDO_OPTIONS_WITH_ARG = {
@@ -263,17 +254,36 @@ def inspect_shell_source(source, violations, *, depth=0):
             if executable is None:
                 continue
 
-            if executable in FORBIDDEN:
-                violations.add(executable)
-
-            inspect_special_command(executable, argv, violations, depth=depth)
+            check_command(executable, argv, violations, depth=depth)
 
 
-def inspect_special_command(executable, argv, violations, *, depth):
+def arg_matches(want, arg):
+    if arg is None:
+        return False
+    if arg == want:
+        return True
+    if want.startswith("--"):
+        return arg.startswith(want + "=")
+    # A short flag may sit inside a cluster: -f in -rf.
+    if want.startswith("-") and len(want) == 2:
+        return arg.startswith("-") and not arg.startswith("--") and want[1] in arg
+    return False
+
+
+def check_command(executable, argv, violations, *, depth):
+    """Record matching rules, then look inside commands that run other commands."""
+    for rule in RULES:
+        if rule.command == executable and all(
+            any(arg_matches(want, arg) for arg in argv[1:]) for want in rule.args
+        ):
+            violations.add(rule)
+
     if executable in SHELLS:
         inspect_shell_c(argv, violations, depth=depth + 1)
     elif executable == "xargs":
         inspect_xargs(argv, violations, depth=depth + 1)
+    elif executable in EXEC_RUNNERS:
+        inspect_exec(argv, *EXEC_RUNNERS[executable], violations, depth=depth + 1)
 
 
 def inspect_shell_c(argv, violations, *, depth):
@@ -317,16 +327,31 @@ def inspect_xargs(argv, violations, *, depth):
 
     executable, unwrapped_argv = unwrap_command(argv[i:])
 
-    if executable is None:
-        return
+    if executable is not None:
+        check_command(executable, unwrapped_argv, violations, depth=depth)
 
-    if executable in FORBIDDEN:
-        violations.add(executable)
 
-    inspect_special_command(executable, unwrapped_argv, violations, depth=depth)
+def inspect_exec(argv, flags, terminators, violations, *, depth):
+    """Inspect commands run by ``find -exec`` / ``fd -x``."""
+    i = 1
+
+    while i < len(argv):
+        if argv[i] in flags:
+            end = i + 1
+            while end < len(argv) and argv[end] not in terminators:
+                end += 1
+
+            executable, inner_argv = unwrap_command(argv[i + 1 : end])
+            if executable is not None:
+                check_command(executable, inner_argv, violations, depth=depth)
+            i = end
+
+        i += 1
 
 
 def main() -> NoReturn:
+    RULES[:] = load_rules()
+
     context = safe_create_context(stdin=sys.stdin)
 
     if not isinstance(context, PreToolUseContext):
@@ -340,14 +365,13 @@ def main() -> NoReturn:
     if isinstance(source, str):
         inspect_shell_source(source, violations)
 
-    if not violations:
-        context.output.exit_success()
+    rules = sorted(violations, key=lambda r: (r.command, r.args))
+    denied = [r for r in rules if r.decision == "deny"]
 
-    messages = []
-    for command in sorted(violations):
-        policy = FORBIDDEN[command]
-        messages.append(
-            f"`{command}` is forbidden; use `{policy['replacement']}` instead: "
-            f"{policy['reason']}"
+    if denied:
+        context.output.exit_block(
+            "Shell command rejected: " + "; ".join(r.describe() for r in denied)
         )
-    context.output.exit_block("Shell command rejected: " + "; ".join(messages))
+    if rules:
+        context.output.ask("; ".join(r.describe() for r in rules))
+    sys.exit(0)

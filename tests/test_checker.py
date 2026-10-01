@@ -1,10 +1,13 @@
 import io
 import json
+import os
 import sys
+from pathlib import Path
 
 import pytest
 
-from bashlex_perms.checker import inspect_shell_source, main
+from bashlex_perms.checker import RULES, inspect_shell_source, main
+from bashlex_perms.config import Rule
 
 REJECTED_COMMANDS = (
     "grep foo file",
@@ -48,7 +51,7 @@ RECURSIVE_REJECTED_COMMANDS = (
 def violations_for(source):
     violations = set()
     inspect_shell_source(source, violations)
-    return violations
+    return {rule.command for rule in violations}
 
 
 def pre_tool_use_input(command):
@@ -103,13 +106,13 @@ def test_main_allows_safe_hook_input(monkeypatch, capsys):
 @pytest.mark.parametrize(
     ("command", "replacement", "reason"),
     (
-        ("grep", "rg", "Prefer ripgrep for search"),
+        ("grep", "ugrep", "Prefer ugrep for search"),
         (
             "egrep",
-            "rg",
-            "Prefer ripgrep for extended regular expression search",
+            "ugrep",
+            "Prefer ugrep for extended regular expression search",
         ),
-        ("fgrep", "rg", "Prefer ripgrep for fixed-string search"),
+        ("fgrep", "ugrep", "Prefer ugrep for fixed-string search"),
         ("find", "fd", "Prefer fd for filesystem search"),
     ),
 )
@@ -139,6 +142,102 @@ def test_main_rejects_hook_input_with_sorted_unique_message(monkeypatch, capsys)
     assert exc_info.value.code == 2
     assert capsys.readouterr().err == (
         "Shell command rejected: `find` is forbidden; use `fd` instead: "
-        "Prefer fd for filesystem search; `grep` is forbidden; use `rg` instead: "
-        "Prefer ripgrep for search\n"
+        "Prefer fd for filesystem search; `grep` is forbidden; use `ugrep` instead: "
+        "Prefer ugrep for search\n"
     )
+
+
+@pytest.mark.parametrize(
+    "source",
+    (
+        "find . -exec grep foo {} \\;",
+        "find . -type f -execdir grep foo {} +",
+        "find . -ok /usr/bin/grep foo {} \\;",
+        "fd -x grep foo",
+        "fd --exec-batch grep foo ; echo",
+        "fdfind -e py -x sudo grep foo {}",
+        "find . -exec sh -c 'grep foo \"$1\"' _ {} \\;",
+    ),
+)
+def test_rejects_commands_run_by_find_and_fd(source):
+    assert "grep" in violations_for(source)
+
+
+def test_find_exec_does_not_flag_terminated_arguments():
+    assert violations_for("fd -x echo {} ; ls") == set()
+    assert violations_for("find . -exec echo {} \\; -name grep") == {"find"}
+
+
+@pytest.fixture
+def arg_rules():
+    saved = list(RULES)
+    RULES[:] = [
+        Rule("git", args=("push", "--force")),
+        Rule("rm", args=("-r", "-f"), decision="ask"),
+    ]
+    yield
+    RULES[:] = saved
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    (
+        ("git push --force origin", {"git"}),
+        ("git push --force=yes", {"git"}),
+        ("git push origin", set()),
+        ("git --force status", set()),
+        ("rm -rf x", {"rm"}),
+        ("rm -r -f x", {"rm"}),
+        ("rm -r x", set()),
+        ("find . -exec rm -fr {} +", {"rm"}),
+    ),
+)
+def test_argument_rules(arg_rules, source, expected):
+    assert violations_for(source) == expected
+
+
+def run_main(command, monkeypatch, capsys, config):
+    cfg = Path(os.environ["XDG_CONFIG_HOME"]) / "bashlex-perms" / "config.toml"
+    cfg.parent.mkdir(parents=True)
+    cfg.write_text(config)
+    monkeypatch.setattr(
+        sys, "stdin", io.StringIO(json.dumps(pre_tool_use_input(command)))
+    )
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+    return exc_info.value.code, capsys.readouterr()
+
+
+CONFIG = """
+[[rule]]
+commands = ["rm"]
+args = ["-rf"]
+decision = "ask"
+
+[[rule]]
+command = "git"
+args = ["push", "--force"]
+use = "git push --force-with-lease"
+"""
+
+
+def test_main_ask_decision(monkeypatch, capsys):
+    code, out = run_main("rm -rf x", monkeypatch, capsys, CONFIG)
+    assert code == 0
+    decision = json.loads(out.out)["hookSpecificOutput"]
+    assert decision["permissionDecision"] == "ask"
+    assert "`rm -rf` needs confirmation" in decision["permissionDecisionReason"]
+
+
+def test_main_deny_wins_over_ask(monkeypatch, capsys):
+    code, out = run_main("rm -rf x; git push --force", monkeypatch, capsys, CONFIG)
+    assert code == 2
+    assert (
+        "`git push --force` is forbidden; use `git push --force-with-lease`" in out.err
+    )
+    assert "rm" not in out.err
+
+
+def test_main_disable_default(monkeypatch, capsys):
+    code, _ = run_main("find .", monkeypatch, capsys, CONFIG)
+    assert code == 0

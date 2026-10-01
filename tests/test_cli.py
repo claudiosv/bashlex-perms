@@ -151,3 +151,37 @@ def test_uninstall_no_matching_entry_is_noop(tmp_path):
 
     assert result.exit_code == 0
     assert json.loads(settings_path.read_text()) == original
+
+
+def test_install_writes_config_once(tmp_path):
+    from bashlex_perms.config import config_path
+
+    settings = tmp_path / "settings.json"
+    assert runner.invoke(app, ["install", "--path", str(settings)]).exit_code == 0
+    assert 'command = "find"' in config_path().read_text()
+
+    config_path().write_text("# mine\n")
+    assert runner.invoke(app, ["install", "--path", str(settings)]).exit_code == 0
+    assert config_path().read_text() == "# mine\n"
+
+
+def test_install_moves_hook_to_front(tmp_path):
+    settings_path = tmp_path / "settings.json"
+    other = {"matcher": "*", "hooks": [{"type": "command", "command": "other-hook"}]}
+    ours = {
+        "matcher": "Bash",
+        "hooks": [{"type": "command", "command": "bashlex-perms"}],
+    }
+    settings_path.write_text(
+        json.dumps({"hooks": {"PreToolUse": [other, ours, other]}})
+    )
+
+    runner.invoke(
+        app, ["install", "--command", "bashlex-perms", "--path", str(settings_path)]
+    )
+
+    assert json.loads(settings_path.read_text())["hooks"]["PreToolUse"] == [
+        ours,
+        other,
+        other,
+    ]
