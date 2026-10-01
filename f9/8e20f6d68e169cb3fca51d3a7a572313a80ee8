@@ -1,0 +1,16 @@
+src/bashlex_perms/checker.py
+  h_aceaeb4e74d6dc 10-11,14-15,18-19
+pyproject.toml
+  h_aceaeb4e74d6dc 14,28
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "f98e20f6d68e169cb3fca51d3a7a572313a80ee8",
+  "prompts": {},
+  "humans": {
+    "h_aceaeb4e74d6dc": {
+      "author": "Claudio Spiess <claudiosv@users.noreply.github.com>"
+    }
+  }
+}
