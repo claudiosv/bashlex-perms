@@ -1,0 +1,19 @@
+uv.lock
+  s_3fcdbfbfcd2d81::t_511f08df93de53 108,110,112,146,148,150-166,180,188,190
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "65b66a3068fb775e45b1e59fbe6a149c2351be2a",
+  "prompts": {},
+  "sessions": {
+    "s_3fcdbfbfcd2d81": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5661459e-de89-452f-a94d-1e88c680e374",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Claudio Spiess <claudiosv@users.noreply.github.com>"
+    }
+  }
+}
