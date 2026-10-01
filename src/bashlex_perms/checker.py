@@ -7,16 +7,16 @@ from cchooks import PreToolUseContext, safe_create_context
 
 FORBIDDEN = {
     "grep": {
-        "replacement": "rg",
-        "reason": "Prefer ripgrep for search",
+        "replacement": "ugrep",
+        "reason": "Prefer ugrep for search",
     },
     "egrep": {
-        "replacement": "rg",
-        "reason": "Prefer ripgrep for extended regular expression search",
+        "replacement": "ugrep",
+        "reason": "Prefer ugrep for extended regular expression search",
     },
     "fgrep": {
-        "replacement": "rg",
-        "reason": "Prefer ripgrep for fixed-string search",
+        "replacement": "ugrep",
+        "reason": "Prefer ugrep for fixed-string search",
     },
     "find": {
         "replacement": "fd",

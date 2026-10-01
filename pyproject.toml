@@ -11,7 +11,7 @@ dependencies = [
     "bashlex>=0.18",
     "cchooks>=0.1.5",
     "rich>=15.0.0",
-    "typer>=0.27.1",
+    "typer>=0.27.2",
 ]
 
 [project.scripts]
@@ -25,7 +25,7 @@ build-backend = "uv_build"
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
-    "ruff>=0.16.2",
+    "ruff>=0.16.10",
 ]
 
 [tool.ruff.lint]
