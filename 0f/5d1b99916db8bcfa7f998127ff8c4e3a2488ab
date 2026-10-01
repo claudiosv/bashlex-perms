@@ -1,0 +1,51 @@
+src/bashlex_perms/default_config.toml
+  s_3fcdbfbfcd2d81::t_519095588f345c 1-11,13-14,25-29
+  s_3fcdbfbfcd2d81::t_f3838afbfa7b7f 12,15-24
+tests/test_config.py
+  s_3fcdbfbfcd2d81::t_519095588f345c 3,13-16,19,35
+  s_3fcdbfbfcd2d81::t_fd85890edac08a 1-2,4-5,12,17-18,33-34,39-40,53,55-59
+  s_3fcdbfbfcd2d81::t_9b9774c6ab7f61 6-11,20-32,36-38,41-52,54
+src/bashlex_perms/checker.py
+  s_3fcdbfbfcd2d81::t_9542c1eb6fe8af 20-25,257-258,260-270,273-280,285-286,330-331,334-349,353,368-369,371-373,375-377
+  s_3fcdbfbfcd2d81::t_519095588f345c 8,10
+  s_3fcdbfbfcd2d81::t_88b22f30e19dd4 9
+  s_3fcdbfbfcd2d81::t_6f0011055796d3 354
+src/bashlex_perms/config.py
+  s_3fcdbfbfcd2d81::t_fac76d47964520 49
+  s_3fcdbfbfcd2d81::t_9542c1eb6fe8af 5,9-15,17-24,26-29,36-48,50-59
+  s_3fcdbfbfcd2d81::t_88b22f30e19dd4 1-4,6-8,16,30-35,61-62,64-65
+  s_3fcdbfbfcd2d81::t_519095588f345c 25,60,63,66-68
+tests/test_cli.py
+  s_3fcdbfbfcd2d81::t_631b3b2978325b 166-187
+  s_3fcdbfbfcd2d81::t_519095588f345c 154-165
+tests/test_checker.py
+  s_3fcdbfbfcd2d81::t_5b07fe50acd259 109,112-113,115,145-146
+  s_3fcdbfbfcd2d81::t_9b9774c6ab7f61 3,5,199-243
+  s_3fcdbfbfcd2d81::t_d61da49cdef4a1 9-10,54,148-198
+README.md
+  s_3fcdbfbfcd2d81::t_519095588f345c 36-40,44-45,47-48
+  s_3fcdbfbfcd2d81::t_5d7422998a7d73 34-35,41-42,49,54
+  s_3fcdbfbfcd2d81::t_9b9774c6ab7f61 43,46,50-53
+tests/conftest.py
+  s_3fcdbfbfcd2d81::t_5b07fe50acd259 1-6
+src/bashlex_perms/cli.py
+  s_3fcdbfbfcd2d81::t_03d3ed23fc281b 90-94
+  s_3fcdbfbfcd2d81::t_519095588f345c 12-13,102-108
+  s_3fcdbfbfcd2d81::t_fcfe816e2a74e2 109
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "0f5d1b99916db8bcfa7f998127ff8c4e3a2488ab",
+  "prompts": {},
+  "sessions": {
+    "s_3fcdbfbfcd2d81": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5661459e-de89-452f-a94d-1e88c680e374",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Claudio Spiess <claudiosv@users.noreply.github.com>"
+    }
+  }
+}
