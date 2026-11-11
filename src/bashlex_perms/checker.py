@@ -5,9 +5,11 @@ from typing import NoReturn
 import bashlex
 from cchooks import PreToolUseContext, safe_create_context
 
-from bashlex_perms.config import DEFAULT_CONFIG, load_rules
+from bashlex_perms.config import DEFAULT_CONFIG, load_guard, load_rules
+from bashlex_perms.deletion import DeletionGuard
 
 RULES = load_rules(DEFAULT_CONFIG)  # replaced from the user config in main()
+GUARD = DeletionGuard(load_guard(DEFAULT_CONFIG))  # likewise
 
 SHELLS = {
     "sh",
@@ -228,7 +230,7 @@ def walk(node):
             yield from walk(child)
 
 
-def inspect_shell_source(source, violations, *, depth=0):
+def inspect_shell_source(source, violations, *, depth=0, cwd=None):
     """
     Parse shell source and inspect every executable command.
 
@@ -237,10 +239,12 @@ def inspect_shell_source(source, violations, *, depth=0):
     """
     if depth > 8:
         return
+    if depth == 0:
+        GUARD.reset(cwd)
 
     try:
         trees = bashlex.parse(source)
-    except (bashlex.errors.ParsingError, NotImplementedError):
+    except bashlex.errors.ParsingError, NotImplementedError:
         return
 
     for tree in trees:
@@ -277,6 +281,9 @@ def check_command(executable, argv, violations, *, depth):
             any(arg_matches(want, arg) for arg in argv[1:]) for want in rule.args
         ):
             violations.add(rule)
+
+    if guard_rule := GUARD.check(executable, argv):
+        violations.add(guard_rule)
 
     if executable in SHELLS:
         inspect_shell_c(argv, violations, depth=depth + 1)
@@ -351,6 +358,7 @@ def inspect_exec(argv, flags, terminators, violations, *, depth):
 
 def main() -> NoReturn:
     RULES[:] = load_rules()
+    GUARD.config = load_guard()
 
     context = safe_create_context(stdin=sys.stdin)
 
@@ -363,7 +371,7 @@ def main() -> NoReturn:
     violations = set()
 
     if isinstance(source, str):
-        inspect_shell_source(source, violations)
+        inspect_shell_source(source, violations, cwd=context.cwd)
 
     rules = sorted(violations, key=lambda r: (r.command, r.args))
     denied = [r for r in rules if r.decision == "deny"]

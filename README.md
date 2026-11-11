@@ -52,6 +52,23 @@ Commands run through `sudo`/`env`/`xargs`/shells and `find -exec` / `fd -x`
 are checked too. If any matching rule is `deny`, the command is blocked;
 otherwise matching `ask` rules prompt for confirmation.
 
+### Deletion guard
+
+`rm`, `find ... -delete` and `git clean` are denied unless every target is a
+literal path strictly below `$CLAUDE_PROJECT_DIR` (falling back to the hook's
+working directory). Globs, expansions, the project root, `$HOME`, and any path
+that is or contains a `protected` name (`.git`, `.claude` by default) are
+denied. Placeholder deletions such as `fd -x rm {}` or `find -exec rm {} +`
+cannot be validated statically and are denied; pass explicit paths instead.
+After a `cd`/`pushd`/`popd`, relative paths are denied. This prevents accidents;
+it is not a security boundary.
+
+```toml
+[deletion_guard]
+enabled = true                     # false disables the guard
+protected = [".git", ".claude"]    # names that may not appear in a target
+```
+
 ## Installing the hook
 
 Register or remove the `PreToolUse` hook in Claude Code settings with the

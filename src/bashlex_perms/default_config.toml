@@ -8,6 +8,14 @@
 #   args     = ["push", "--force"]     # optional; all must be present
 #   decision = "deny"                  # "deny" (default) or "ask"
 
+# Deletion guard: `rm`, `find ... -delete` and `git clean` are denied unless every
+# target is a literal path strictly below $CLAUDE_PROJECT_DIR (else the working
+# directory). Globs, expansions, `fd -x rm {}` / `find -exec rm {}` placeholders and
+# `protected` names anywhere in a target or its subtree are denied.
+[deletion_guard]
+enabled = true
+protected = [".git", ".claude"]
+
 [[rule]]
 command = "grep"
 use = "ugrep"

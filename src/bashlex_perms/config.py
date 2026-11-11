@@ -22,6 +22,12 @@ class Rule:
         return f"`{call}` {verb}{use}{reason}"
 
 
+@dataclass(frozen=True)
+class GuardConfig:
+    enabled: bool = True
+    protected: tuple[str, ...] = (".git", ".claude")
+
+
 DEFAULT_CONFIG = Path(__file__).with_name("default_config.toml")
 
 RULE_KEYS = {"command", "commands", "use", "reason", "args", "decision"}
@@ -56,13 +62,34 @@ def _parse_rule(entry: dict, path: Path) -> list[Rule]:
     ]
 
 
-def load_rules(path: Path | None = None) -> list[Rule]:
-    """Rules from the config file, or the packaged defaults if it doesn't exist."""
+def _read(path: Path | None) -> tuple[dict, Path]:
     path = path or config_path()
     if not path.exists():
         path = DEFAULT_CONFIG
-
     with path.open("rb") as f:
-        entries = tomllib.load(f).get("rule", [])
+        return tomllib.load(f), path
 
-    return [rule for entry in entries for rule in _parse_rule(entry, path)]
+
+def load_rules(path: Path | None = None) -> list[Rule]:
+    """Rules from the config file, or the packaged defaults if it doesn't exist."""
+    data, path = _read(path)
+    return [rule for entry in data.get("rule", []) for rule in _parse_rule(entry, path)]
+
+
+def load_guard(path: Path | None = None) -> GuardConfig:
+    """The [deletion_guard] table, or defaults (enabled) if absent."""
+    data, path = _read(path)
+    table = data.get("deletion_guard", {})
+    if unknown := table.keys() - {"enabled", "protected"}:
+        raise ValueError(f"{path}: [deletion_guard] unknown keys {sorted(unknown)}")
+    enabled = table.get("enabled", True)
+    protected = table.get("protected", list(GuardConfig.protected))
+    if not isinstance(enabled, bool):
+        raise ValueError(f"{path}: [deletion_guard] 'enabled' must be a boolean")
+    if not (
+        isinstance(protected, list) and all(isinstance(p, str) and p for p in protected)
+    ):
+        raise ValueError(
+            f"{path}: [deletion_guard] 'protected' must be a list of names"
+        )
+    return GuardConfig(enabled, tuple(protected))

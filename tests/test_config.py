@@ -57,3 +57,19 @@ def test_invalid_rule(tmp_path, entry):
 def test_config_path_xdg(monkeypatch, tmp_path):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
     assert config_path() == tmp_path / "bashlex-perms" / "config.toml"
+
+
+def test_guard_defaults_and_overrides(tmp_path):
+    from bashlex_perms.config import GuardConfig, load_guard
+
+    assert load_guard(tmp_path / "nope.toml") == GuardConfig()
+    p = write(tmp_path, '[deletion_guard]\nenabled = false\nprotected = [".hg"]\n')
+    assert load_guard(p) == GuardConfig(False, (".hg",))
+
+
+@pytest.mark.parametrize("body", ["enabled = 1", "protected = 'x'", "bogus = 1"])
+def test_guard_rejects_bad_values(tmp_path, body):
+    from bashlex_perms.config import load_guard
+
+    with pytest.raises(ValueError):
+        load_guard(write(tmp_path, f"[deletion_guard]\n{body}\n"))

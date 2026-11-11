@@ -246,3 +246,106 @@ def test_main_disable_default(monkeypatch, capsys):
 @pytest.mark.parametrize("source", ["a=$((1+2))", "case x in x) echo;; esac"])
 def test_unsupported_syntax_is_ignored(source):
     assert violations_for(source) == set()
+
+
+@pytest.fixture
+def project(tmp_path, monkeypatch):
+    root = tmp_path / "proj"
+    (root / "sub").mkdir(parents=True)
+    (root / "sub" / "a.txt").write_text("x")
+    (root / "nested" / ".git").mkdir(parents=True)
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(root))
+    monkeypatch.chdir(root)
+    return root
+
+
+def guard_violations(source):
+    violations = set()
+    inspect_shell_source(source, violations)
+    return {r for r in violations if "deletion guard" in r.reason}
+
+
+@pytest.mark.parametrize(
+    "source",
+    (
+        "rm sub/a.txt",
+        "rm -rf sub",
+        "rm -rf -- sub/a.txt",
+        "sudo rm -f sub/a.txt",
+        "find sub -type f -name x -delete",
+        "git clean -fd -- sub",
+        "echo rm",
+        "fd -e txt sub",
+        "ls sub; rm sub/a.txt",
+    ),
+)
+def test_guard_allows_literal_paths_below_root(project, source):
+    assert guard_violations(source) == set()
+
+
+@pytest.mark.parametrize(
+    "source",
+    (
+        "rm -rf .",
+        "rm -rf ..",
+        "rm -rf /",
+        "rm -rf ~",
+        "rm -rf $HOME/x",
+        "rm -rf sub/*",
+        "rm -rf .git",
+        "rm -rf .claude/settings.json",
+        "rm -rf nested",  # contains a nested .git
+        "rm -rf ../other",
+        "rm -rf sub/../..",
+        "rm",
+        "rm -x sub",
+        "find . -delete",
+        "find sub -exec rm {} +",
+        "find sub -type f -user bob -delete",
+        "git clean -fdx",
+        "git clean -fd -- :/",
+        "git -C sub clean -fd -- sub",
+        "cd sub && rm a.txt",
+        "bash -c 'rm -rf /'",
+        "xargs rm",
+        "env -i rm -rf ..",
+    ),
+)
+def test_guard_denies_unsafe_deletions(project, source):
+    assert guard_violations(source)
+
+
+@pytest.mark.parametrize(
+    "source",
+    (
+        "fd -e tmp -x rm {}",
+        "fd -e tmp --exec rm {}",
+        "fd -e tmp -X rm {}",
+        "fd -e tmp --exec-batch rm -f {}",
+        "fd . sub -x sudo rm -rf {/}",
+    ),
+)
+def test_guard_denies_fd_placeholder_deletion(project, source):
+    (rule,) = guard_violations(source)
+    assert rule.command == "rm"
+    assert "placeholders" in rule.reason
+
+
+def test_guard_symlink_escape(project, tmp_path):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (project / "link").symlink_to(outside)
+    assert guard_violations("rm -rf link/x")
+
+
+def test_guard_denies_via_main(project, monkeypatch, capsys):
+    code, out = run_main("rm -rf ..", monkeypatch, capsys, "")
+    assert code == 2
+    assert "deletion guard" in out.err
+
+
+def test_guard_can_be_disabled(project, monkeypatch, capsys):
+    code, _ = run_main(
+        "rm -rf ..", monkeypatch, capsys, "[deletion_guard]\nenabled = false\n"
+    )
+    assert code == 0
