@@ -33,7 +33,7 @@ class Denied(Exception):
 
 
 class Unverifiable(Denied):
-    """Target can't be checked statically; allowed unless config.strict."""
+    """Target can't be checked statically; handled per config.unverifiable."""
 
 
 @dataclass
@@ -87,14 +87,20 @@ class DeletionGuard:
         return None
 
     def _target(self, value: str | None) -> Path | None:
-        """Validated path; None if unverifiable (ask the user, or deny if strict)."""
+        """Validated path; None if unverifiable (see config.unverifiable)."""
         try:
             return self._resolve(value)
         except Unverifiable as error:
-            if self.config.strict:
-                raise Denied(str(error)) from None
-            self.unverified.append(str(error))
+            self._unverifiable(str(error))
             return None
+
+    def _unverifiable(self, reason: str) -> None:
+        """Apply config.unverifiable: allow (ignore), ask (collect) or deny."""
+        mode = self.config.unverifiable
+        if mode == "deny":
+            raise Denied(reason)
+        if mode == "ask":
+            self.unverified.append(reason)
 
     def _resolve(self, value: str | None) -> Path:
         if self.root is None or self.cwd is None:
@@ -109,7 +115,7 @@ class DeletionGuard:
             )
         if value.startswith("~"):
             expanded = os.path.expanduser(value)
-            if self.config.strict or expanded == value:
+            if expanded == value:
                 raise Unverifiable("`~` is not expanded; use explicit literal paths")
             value = expanded
         if not value:
@@ -118,8 +124,6 @@ class DeletionGuard:
             raise Unverifiable("use explicit literal paths; no expansions")
         glob = re.search(GLOB, value) is not None
         if glob:
-            if self.config.strict:
-                raise Unverifiable("unquoted glob patterns are unsupported")
             if any(
                 seg.startswith(".") and re.search(GLOB, seg) for seg in value.split("/")
             ):
@@ -173,9 +177,7 @@ class DeletionGuard:
             else:
                 targets.append(arg)
         if not targets:
-            if self.config.strict:
-                raise Denied("rm needs explicit targets")
-            self.unverified.append("targets come from elsewhere, e.g. xargs")
+            self._unverifiable("targets come from elsewhere, e.g. xargs")
             return
         for target in targets:
             self._target(target)

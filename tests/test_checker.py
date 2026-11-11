@@ -310,7 +310,7 @@ HARD_DENIED = (
     "rm -rf ~/x",  # expanded, outside the project
 )
 
-# Targets that cannot be verified statically: ask the user (deny if strict).
+# Targets that cannot be verified statically: ask by default, per `unverifiable`.
 UNVERIFIABLE = (
     "rm -rf $X",
     "xargs rm",
@@ -339,18 +339,22 @@ def test_guard_asks_when_unverifiable(project, source):
 
 
 @pytest.mark.parametrize("source", UNVERIFIABLE)
-def test_guard_strict_denies_unverifiable(project, monkeypatch, source):
-    monkeypatch.setattr(GUARD, "config", GuardConfig(strict=True))
+def test_guard_unverifiable_deny(project, monkeypatch, source):
+    monkeypatch.setattr(GUARD, "config", GuardConfig(unverifiable="deny"))
     rules = guard_violations(source)
     assert rules
     assert {r.decision for r in rules} == {"deny"}
 
 
-@pytest.mark.parametrize("source", ("rm -rf sub/*", "rm *.pyc", "rm -f sub/a.*"))
-def test_guard_checks_glob_directory(project, monkeypatch, source):
+@pytest.mark.parametrize("source", UNVERIFIABLE)
+def test_guard_unverifiable_allow(project, monkeypatch, source):
+    monkeypatch.setattr(GUARD, "config", GuardConfig(unverifiable="allow"))
     assert guard_violations(source) == set()
-    monkeypatch.setattr(GUARD, "config", GuardConfig(strict=True))
-    assert {r.decision for r in guard_violations(source)} == {"deny"}
+
+
+@pytest.mark.parametrize("source", ("rm -rf sub/*", "rm *.pyc", "rm -f sub/a.*"))
+def test_guard_checks_glob_directory(project, source):
+    assert guard_violations(source) == set()
 
 
 def test_guard_deny_wins_over_unverifiable(project):

@@ -27,9 +27,10 @@ class GuardConfig:
     enabled: bool = True
     protected: tuple[str, ...] = (".git", ".claude")
     allowed: tuple[str, ...] = ("/tmp",)  # extra roots besides the project dir
-    strict: bool = False  # deny targets that can't be validated statically
+    unverifiable: str = "ask"  # targets that cannot be validated: allow, ask or deny
 
 
+UNVERIFIABLE_MODES = ("allow", "ask", "deny")
 DEFAULT_CONFIG = Path(__file__).with_name("default_config.toml")
 
 RULE_KEYS = {"command", "commands", "use", "reason", "args", "decision"}
@@ -82,7 +83,7 @@ def load_guard(path: Path | None = None) -> GuardConfig:
     """The [deletion_guard] table, or defaults (enabled) if absent."""
     data, path = _read(path)
     table = data.get("deletion_guard", {})
-    if unknown := table.keys() - {"enabled", "protected", "allowed", "strict"}:
+    if unknown := table.keys() - {"enabled", "protected", "allowed", "unverifiable"}:
         raise ValueError(f"{path}: [deletion_guard] unknown keys {sorted(unknown)}")
     enabled = table.get("enabled", True)
     protected = table.get("protected", list(GuardConfig.protected))
@@ -104,7 +105,10 @@ def load_guard(path: Path | None = None) -> GuardConfig:
         raise ValueError(
             f"{path}: [deletion_guard] 'allowed' must be a list of absolute paths"
         )
-    strict = table.get("strict", False)
-    if not isinstance(strict, bool):
-        raise ValueError(f"{path}: [deletion_guard] 'strict' must be a boolean")
-    return GuardConfig(enabled, tuple(protected), tuple(allowed), strict)
+    unverifiable = table.get("unverifiable", GuardConfig.unverifiable)
+    if unverifiable not in UNVERIFIABLE_MODES:
+        raise ValueError(
+            f"{path}: [deletion_guard] 'unverifiable' must be one of "
+            f"{', '.join(map(repr, UNVERIFIABLE_MODES))}"
+        )
+    return GuardConfig(enabled, tuple(protected), tuple(allowed), unverifiable)

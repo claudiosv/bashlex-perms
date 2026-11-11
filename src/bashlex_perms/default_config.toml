@@ -12,12 +12,12 @@
 # target is a literal path strictly below $CLAUDE_PROJECT_DIR (else the working
 # directory) or an `allowed` path. Globs are checked by their literal directory.
 # Targets that can't be verified statically (`$VAR`, `fd -x rm {}`, `xargs rm`, ...)
-# prompt for approval; with `strict = true` they are denied instead.
+# follow `unverifiable`: "ask" (default) prompts, "allow" lets them through, "deny" blocks.
 # Protected names (`protected`), dot-globs and out-of-bounds paths are always denied.
 [deletion_guard]
 enabled = true
 protected = [".git", ".claude"]
-strict = false  # true: deny, rather than ask about, unverifiable targets
+unverifiable = "ask"  # "allow", "ask" or "deny" for targets that cannot be verified
 allowed = ["/tmp"]  # extra absolute roots; the project dir is always allowed
 
 [[rule]]

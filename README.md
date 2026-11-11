@@ -63,7 +63,8 @@ dot-globs, and any path that is or contains a `protected` name (`.git`,
 
 Targets that cannot be verified statically (`$VAR`, `fd -x rm {}`,
 `find -exec rm {} +`, `xargs rm`, relative paths after `cd`) ask for manual
-approval; set `strict = true` to deny them instead. A definite violation in the
+approval by default; set `unverifiable = "allow"` to let them through or
+`"deny"` to block them. A definite violation in the
 same command still denies. This prevents accidents; it is not a security
 boundary.
 
@@ -72,7 +73,7 @@ boundary.
 enabled = true                     # false disables the guard
 protected = [".git", ".claude"]    # names that may not appear in a target
 allowed = ["/tmp"]                 # extra absolute roots (~ ok); project dir always allowed
-strict = false                     # true: deny instead of ask when a target is unverifiable
+unverifiable = "ask"               # "allow", "ask" or "deny" when a target cannot be verified
 ```
 
 ## Installing the hook
