@@ -284,59 +284,84 @@ def test_guard_allows_literal_paths_below_root(project, source):
     assert guard_violations(source) == set()
 
 
-@pytest.mark.parametrize(
-    "source",
-    (
-        "rm -rf .",
-        "rm -rf ..",
-        "rm -rf /",
-        "rm -rf ~",
-        "rm -rf $HOME/x",
-        "rm -rf sub/*",
-        "rm -rf .git",
-        "rm -rf .claude/settings.json",
-        "rm -rf nested",  # contains a nested .git
-        "rm -rf ../other",
-        "rm -rf sub/../..",
-        "rm",
-        "rm -x sub",
-        "find . -delete",
-        "find sub -exec rm {} +",
-        "find sub -type f -user bob -delete",
-        "git clean -fdx",
-        "git clean -fd -- :/",
-        "git -C sub clean -fd -- sub",
-        "cd sub && rm a.txt",
-        "bash -c 'rm -rf /'",
-        "xargs rm",
-        "env -i rm -rf ..",
-    ),
+HARD_DENIED = (
+    "rm -rf .",
+    "rm -rf ..",
+    "rm -rf /",
+    "rm -rf /*",
+    "rm -rf .*",
+    "rm -rf sub/.*",
+    "rm -rf .git",
+    "rm -rf .git/*",
+    "rm -rf .claude/settings.json",
+    "rm -rf nested",  # contains a nested .git
+    "rm -rf ../other",
+    "rm -rf ../*",
+    "rm -rf sub/../..",
+    "rm -x sub",
+    "find . -delete",
+    "find sub -type f -user bob -delete",
+    "git clean -fdx",
+    "git clean -fd -- :/",
+    "git -C sub clean -fd -- sub",
+    "bash -c 'rm -rf /'",
+    "env -i rm -rf ..",
+    "rm -rf $HOME/x ..",
+    "rm -rf ~/x",  # expanded, outside the project
 )
+
+# Targets that cannot be verified statically: ask the user (deny if strict).
+UNVERIFIABLE = (
+    "rm -rf $X",
+    "xargs rm",
+    "find sub -exec rm {} +",
+    "cd sub && rm a.txt",
+    "fd -e tmp -x rm {}",
+    "fd -e tmp --exec rm {}",
+    "fd -e tmp -X rm {}",
+    "fd -e tmp --exec-batch rm -f {}",
+    "fd . sub -x sudo rm -rf {/}",
+)
+
+
+@pytest.mark.parametrize("source", HARD_DENIED)
 def test_guard_denies_unsafe_deletions(project, source):
-    assert guard_violations(source)
+    rules = guard_violations(source)
+    assert rules
+    assert {r.decision for r in rules} == {"deny"}
 
 
-@pytest.mark.parametrize(
-    "source",
-    (
-        "fd -e tmp -x rm {}",
-        "fd -e tmp --exec rm {}",
-        "fd -e tmp -X rm {}",
-        "fd -e tmp --exec-batch rm -f {}",
-        "fd . sub -x sudo rm -rf {/}",
-    ),
-)
-def test_guard_denies_fd_placeholder_deletion(project, source):
-    (rule,) = guard_violations(source)
-    assert rule.command == "rm"
-    assert "placeholders" in rule.reason
+@pytest.mark.parametrize("source", UNVERIFIABLE)
+def test_guard_asks_when_unverifiable(project, source):
+    rules = guard_violations(source)
+    assert rules
+    assert {r.decision for r in rules} == {"ask"}
+
+
+@pytest.mark.parametrize("source", UNVERIFIABLE)
+def test_guard_strict_denies_unverifiable(project, monkeypatch, source):
+    monkeypatch.setattr(GUARD, "config", GuardConfig(strict=True))
+    rules = guard_violations(source)
+    assert rules
+    assert {r.decision for r in rules} == {"deny"}
+
+
+@pytest.mark.parametrize("source", ("rm -rf sub/*", "rm *.pyc", "rm -f sub/a.*"))
+def test_guard_checks_glob_directory(project, monkeypatch, source):
+    assert guard_violations(source) == set()
+    monkeypatch.setattr(GUARD, "config", GuardConfig(strict=True))
+    assert {r.decision for r in guard_violations(source)} == {"deny"}
+
+
+def test_guard_deny_wins_over_unverifiable(project):
+    assert {r.decision for r in guard_violations("rm $X ..")} == {"deny"}
 
 
 def test_guard_symlink_escape(project, tmp_path):
     outside = tmp_path / "outside"
     outside.mkdir()
     (project / "link").symlink_to(outside)
-    assert guard_violations("rm -rf link/x")
+    assert {r.decision for r in guard_violations("rm -rf link/x")} == {"deny"}
 
 
 def test_guard_denies_via_main(project, monkeypatch, capsys):

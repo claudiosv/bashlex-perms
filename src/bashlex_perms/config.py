@@ -27,6 +27,7 @@ class GuardConfig:
     enabled: bool = True
     protected: tuple[str, ...] = (".git", ".claude")
     allowed: tuple[str, ...] = ("/tmp",)  # extra roots besides the project dir
+    strict: bool = False  # deny targets that can't be validated statically
 
 
 DEFAULT_CONFIG = Path(__file__).with_name("default_config.toml")
@@ -81,7 +82,7 @@ def load_guard(path: Path | None = None) -> GuardConfig:
     """The [deletion_guard] table, or defaults (enabled) if absent."""
     data, path = _read(path)
     table = data.get("deletion_guard", {})
-    if unknown := table.keys() - {"enabled", "protected", "allowed"}:
+    if unknown := table.keys() - {"enabled", "protected", "allowed", "strict"}:
         raise ValueError(f"{path}: [deletion_guard] unknown keys {sorted(unknown)}")
     enabled = table.get("enabled", True)
     protected = table.get("protected", list(GuardConfig.protected))
@@ -103,4 +104,7 @@ def load_guard(path: Path | None = None) -> GuardConfig:
         raise ValueError(
             f"{path}: [deletion_guard] 'allowed' must be a list of absolute paths"
         )
-    return GuardConfig(enabled, tuple(protected), tuple(allowed))
+    strict = table.get("strict", False)
+    if not isinstance(strict, bool):
+        raise ValueError(f"{path}: [deletion_guard] 'strict' must be a boolean")
+    return GuardConfig(enabled, tuple(protected), tuple(allowed), strict)

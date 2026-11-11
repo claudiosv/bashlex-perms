@@ -11,7 +11,8 @@ from pathlib import Path
 
 from bashlex_perms.config import GuardConfig, Rule
 
-BAD_CHARS = set("$`~*?[]{}\\\n\r\x00")
+BAD_CHARS = set("$`\\\n\r\x00")
+GLOB = r"[*?\[]"
 RM_FLAGS = set("fRrivd")
 CLEAN_FLAGS = set("fdxXnq")
 FIND_FLAGS = {"-depth", "-xdev"}
@@ -31,21 +32,27 @@ class Denied(Exception):
     pass
 
 
+class Unverifiable(Denied):
+    """Target can't be checked statically; allowed unless config.strict."""
+
+
 @dataclass
 class DeletionGuard:
     config: GuardConfig = field(default_factory=GuardConfig)
     root: Path | None = None
     cwd: Path | None = None
     moved: bool = False  # a cd/pushd/popd ran earlier, so relative paths are unreliable
+    unverified: list[str] = field(default_factory=list)  # reasons to ask the user
 
     def reset(self, cwd: str | None = None) -> None:
         """Start a new command. Root: CLAUDE_PROJECT_DIR, else the working dir."""
         self.cwd = Path(cwd or os.getcwd()).resolve()
         self.root = Path(os.environ.get("CLAUDE_PROJECT_DIR") or self.cwd).resolve()
         self.moved = False
+        self.unverified = []
 
     def check(self, executable: str, argv: list) -> Rule | None:
-        """Return a deny Rule if this command is a deletion we don't accept."""
+        """Deny Rule for a rejected deletion; ask Rule if a target can't be verified."""
         if not self.config.enabled:
             return None
         if executable in DIR_CHANGERS:
@@ -53,6 +60,7 @@ class DeletionGuard:
             return None
         args = argv[1:]
         call: tuple[str, ...] = ()
+        self.unverified = []
         try:
             if executable == "rm":
                 self._rm(args)
@@ -68,33 +76,75 @@ class DeletionGuard:
                 return None
         except Denied as error:
             return Rule(executable, reason=f"deletion guard: {error}", args=call)
+        if self.unverified:
+            reason = "; ".join(dict.fromkeys(self.unverified))
+            return Rule(
+                executable,
+                reason=f"deletion guard cannot verify target ({reason})",
+                args=call,
+                decision="ask",
+            )
         return None
 
-    def _target(self, value: str | None) -> Path:
+    def _target(self, value: str | None) -> Path | None:
+        """Validated path; None if unverifiable (ask the user, or deny if strict)."""
+        try:
+            return self._resolve(value)
+        except Unverifiable as error:
+            if self.config.strict:
+                raise Denied(str(error)) from None
+            self.unverified.append(str(error))
+            return None
+
+    def _resolve(self, value: str | None) -> Path:
         if self.root is None or self.cwd is None:
             self.reset()
         root, cwd = self.root, self.cwd
         assert root is not None and cwd is not None
         if value is None:
-            raise Denied("target is not a literal path")
+            raise Unverifiable("target is not a literal path")
         if "{" in value:
-            raise Denied(
+            raise Unverifiable(
                 "find/fd placeholders cannot be validated; pass explicit paths"
             )
-        if not value or BAD_CHARS & set(value):
-            raise Denied(
-                "use explicit literal paths; no expansions, globs, or empty paths"
+        if value.startswith("~"):
+            expanded = os.path.expanduser(value)
+            if self.config.strict or expanded == value:
+                raise Unverifiable("`~` is not expanded; use explicit literal paths")
+            value = expanded
+        if not value:
+            raise Denied("empty path")
+        if BAD_CHARS & set(value):
+            raise Unverifiable("use explicit literal paths; no expansions")
+        glob = re.search(GLOB, value) is not None
+        if glob:
+            if self.config.strict:
+                raise Unverifiable("unquoted glob patterns are unsupported")
+            if any(
+                seg.startswith(".") and re.search(GLOB, seg) for seg in value.split("/")
+            ):
+                raise Denied("dot-globs can match protected names and `..`")
+            # Validate the literal directory the glob expands in.
+            prefix = re.split(GLOB, value, maxsplit=1)[0]
+            value = prefix.rpartition("/")[0] or (
+                "/" if prefix.startswith("/") else "."
             )
         path = Path(value)
         protected = set(self.config.protected)
         if protected & set(path.parts):
             raise Denied("Git metadata and Claude configuration are protected")
         if self.moved and not path.is_absolute():
-            raise Denied("relative path after cd/pushd/popd; use absolute paths")
+            raise Unverifiable("relative path after cd/pushd/popd; use absolute paths")
         resolved = (path if path.is_absolute() else cwd / path).resolve()
         bases = [root, *(Path(a).expanduser().resolve() for a in self.config.allowed)]
+        # A glob may expand directly inside a base; a plain target may not be it.
         base = next(
-            (b for b in bases if resolved != b and resolved.is_relative_to(b)), None
+            (
+                b
+                for b in bases
+                if resolved.is_relative_to(b) and (glob or resolved != b)
+            ),
+            None,
         )
         if base is None:
             raise Denied(
@@ -105,7 +155,7 @@ class DeletionGuard:
             raise Denied("home directory is protected")
         if protected & set(resolved.relative_to(base).parts):
             raise Denied("target resolves into protected metadata")
-        if resolved.is_dir():
+        if not glob and resolved.is_dir():
             for directory, directories, files in os.walk(resolved, followlinks=False):
                 if protected & {*directories, *files}:
                     raise Denied(f"subtree contains protected metadata: {directory!r}")
@@ -123,7 +173,10 @@ class DeletionGuard:
             else:
                 targets.append(arg)
         if not targets:
-            raise Denied("rm needs explicit targets")
+            if self.config.strict:
+                raise Denied("rm needs explicit targets")
+            self.unverified.append("targets come from elsewhere, e.g. xargs")
+            return
         for target in targets:
             self._target(target)
 
@@ -132,7 +185,8 @@ class DeletionGuard:
             args = args[1:]
         if not args or args[0] is None or args[0].startswith("-"):
             raise Denied("find deletion requires an explicit starting directory")
-        if not self._target(args[0]).is_dir():
+        start = self._target(args[0])
+        if start is not None and not start.is_dir():
             raise Denied("find starting path must be an existing directory")
         expression = args[1:]
         if not expression or expression[-1] != "-delete":

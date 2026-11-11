@@ -10,11 +10,14 @@
 
 # Deletion guard: `rm`, `find ... -delete` and `git clean` are denied unless every
 # target is a literal path strictly below $CLAUDE_PROJECT_DIR (else the working
-# directory) or an `allowed` path. Globs, expansions, `fd -x rm {}` / `find -exec rm {}` placeholders and
-# `protected` names anywhere in a target or its subtree are denied.
+# directory) or an `allowed` path. Globs are checked by their literal directory.
+# Targets that can't be verified statically (`$VAR`, `fd -x rm {}`, `xargs rm`, ...)
+# prompt for approval; with `strict = true` they are denied instead.
+# Protected names (`protected`), dot-globs and out-of-bounds paths are always denied.
 [deletion_guard]
 enabled = true
 protected = [".git", ".claude"]
+strict = false  # true: deny, rather than ask about, unverifiable targets
 allowed = ["/tmp"]  # extra absolute roots; the project dir is always allowed
 
 [[rule]]

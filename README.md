@@ -56,18 +56,23 @@ otherwise matching `ask` rules prompt for confirmation.
 
 `rm`, `find ... -delete` and `git clean` are denied unless every target is a
 literal path strictly below `$CLAUDE_PROJECT_DIR` (falling back to the hook's
-working directory) or below an `allowed` path (default `/tmp`). Globs, expansions, the project root, `$HOME`, and any path
-that is or contains a `protected` name (`.git`, `.claude` by default) are
-denied. Placeholder deletions such as `fd -x rm {}` or `find -exec rm {} +`
-cannot be validated statically and are denied; pass explicit paths instead.
-After a `cd`/`pushd`/`popd`, relative paths are denied. This prevents accidents;
-it is not a security boundary.
+working directory) or below an `allowed` path (default `/tmp`). Globs are
+checked by their literal directory (`rm sub/*`). The project root, `$HOME`,
+dot-globs, and any path that is or contains a `protected` name (`.git`,
+`.claude` by default) are denied.
+
+Targets that cannot be verified statically (`$VAR`, `fd -x rm {}`,
+`find -exec rm {} +`, `xargs rm`, relative paths after `cd`) ask for manual
+approval; set `strict = true` to deny them instead. A definite violation in the
+same command still denies. This prevents accidents; it is not a security
+boundary.
 
 ```toml
 [deletion_guard]
 enabled = true                     # false disables the guard
 protected = [".git", ".claude"]    # names that may not appear in a target
 allowed = ["/tmp"]                 # extra absolute roots (~ ok); project dir always allowed
+strict = false                     # true: deny instead of ask when a target is unverifiable
 ```
 
 ## Installing the hook
