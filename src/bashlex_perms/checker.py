@@ -240,7 +240,7 @@ def inspect_shell_source(source, violations, *, depth=0):
 
     try:
         trees = bashlex.parse(source)
-    except bashlex.errors.ParsingError:
+    except (bashlex.errors.ParsingError, NotImplementedError):
         return
 
     for tree in trees:

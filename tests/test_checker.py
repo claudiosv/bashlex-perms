@@ -241,3 +241,8 @@ def test_main_deny_wins_over_ask(monkeypatch, capsys):
 def test_main_disable_default(monkeypatch, capsys):
     code, _ = run_main("find .", monkeypatch, capsys, CONFIG)
     assert code == 0
+
+
+@pytest.mark.parametrize("source", ["a=$((1+2))", "case x in x) echo;; esac"])
+def test_unsupported_syntax_is_ignored(source):
+    assert violations_for(source) == set()
