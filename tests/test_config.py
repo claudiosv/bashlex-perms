@@ -73,3 +73,13 @@ def test_guard_rejects_bad_values(tmp_path, body):
 
     with pytest.raises(ValueError):
         load_guard(write(tmp_path, f"[deletion_guard]\n{body}\n"))
+
+
+def test_guard_allowed(tmp_path):
+    from bashlex_perms.config import load_guard
+
+    assert load_guard(tmp_path / "nope.toml").allowed == ("/tmp",)
+    p = write(tmp_path, '[deletion_guard]\nallowed = ["/tmp", "~/scratch"]\n')
+    assert load_guard(p).allowed == ("/tmp", "~/scratch")
+    with pytest.raises(ValueError):
+        load_guard(write(tmp_path, '[deletion_guard]\nallowed = ["rel"]\n'))

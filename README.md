@@ -56,7 +56,7 @@ otherwise matching `ask` rules prompt for confirmation.
 
 `rm`, `find ... -delete` and `git clean` are denied unless every target is a
 literal path strictly below `$CLAUDE_PROJECT_DIR` (falling back to the hook's
-working directory). Globs, expansions, the project root, `$HOME`, and any path
+working directory) or below an `allowed` path (default `/tmp`). Globs, expansions, the project root, `$HOME`, and any path
 that is or contains a `protected` name (`.git`, `.claude` by default) are
 denied. Placeholder deletions such as `fd -x rm {}` or `find -exec rm {} +`
 cannot be validated statically and are denied; pass explicit paths instead.
@@ -67,6 +67,7 @@ it is not a security boundary.
 [deletion_guard]
 enabled = true                     # false disables the guard
 protected = [".git", ".claude"]    # names that may not appear in a target
+allowed = ["/tmp"]                 # extra absolute roots (~ ok); project dir always allowed
 ```
 
 ## Installing the hook

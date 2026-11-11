@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from bashlex_perms.checker import RULES, inspect_shell_source, main
-from bashlex_perms.config import Rule
+from bashlex_perms.checker import GUARD, RULES, inspect_shell_source, main
+from bashlex_perms.config import GuardConfig, Rule
 
 REJECTED_COMMANDS = (
     "grep foo file",
@@ -256,6 +256,7 @@ def project(tmp_path, monkeypatch):
     (root / "nested" / ".git").mkdir(parents=True)
     monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(root))
     monkeypatch.chdir(root)
+    monkeypatch.setattr(GUARD, "config", GuardConfig())
     return root
 
 
@@ -349,3 +350,14 @@ def test_guard_can_be_disabled(project, monkeypatch, capsys):
         "rm -rf ..", monkeypatch, capsys, "[deletion_guard]\nenabled = false\n"
     )
     assert code == 0
+
+
+def test_guard_allowed_paths(project, tmp_path, monkeypatch):
+    target = tmp_path / "scratch"
+    target.mkdir()
+    # Outside the project and not in the default /tmp allowance.
+    assert guard_violations(f"rm -rf {target}")
+    monkeypatch.setattr(GUARD, "config", GuardConfig(allowed=(str(tmp_path),)))
+    assert guard_violations(f"rm -rf {target}") == set()
+    assert guard_violations(f"rm -rf {tmp_path}")  # the allowed root itself
+    assert guard_violations(f"rm -rf {target}/.git")

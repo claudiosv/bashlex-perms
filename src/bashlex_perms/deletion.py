@@ -92,11 +92,18 @@ class DeletionGuard:
         if self.moved and not path.is_absolute():
             raise Denied("relative path after cd/pushd/popd; use absolute paths")
         resolved = (path if path.is_absolute() else cwd / path).resolve()
-        if resolved == root or not resolved.is_relative_to(root):
-            raise Denied(f"target must be strictly below project root: {value!r}")
+        bases = [root, *(Path(a).expanduser().resolve() for a in self.config.allowed)]
+        base = next(
+            (b for b in bases if resolved != b and resolved.is_relative_to(b)), None
+        )
+        if base is None:
+            raise Denied(
+                f"target must be strictly below the project dir or an allowed path: "
+                f"{value!r}"
+            )
         if resolved == Path.home().resolve():
             raise Denied("home directory is protected")
-        if protected & set(resolved.relative_to(root).parts):
+        if protected & set(resolved.relative_to(base).parts):
             raise Denied("target resolves into protected metadata")
         if resolved.is_dir():
             for directory, directories, files in os.walk(resolved, followlinks=False):
